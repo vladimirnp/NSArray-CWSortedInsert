@@ -36,7 +36,7 @@
 {
   NSUInteger index = 0;
 	NSUInteger topIndex = [self count];
-  IMP objectAtIndexImp = [self methodForSelector:@selector(objectAtIndex:)];
+  id (*objectAtIndexImp)(id, SEL, NSUInteger) = (id (*)(id, SEL, NSUInteger))[self methodForSelector:@selector(objectAtIndex:)];
   while (index < topIndex) {
     NSUInteger midIndex = (index + topIndex) / 2;
     id testObject = objectAtIndexImp(self, @selector(objectAtIndex:), midIndex);
@@ -50,7 +50,7 @@
 }
 
 static NSComparisonResult cw_SelectorCompare(id a, id b, void* aSelector) {
-	return (NSComparisonResult)objc_msgSend(a, (SEL)aSelector, b);
+	return ((NSComparisonResult (*)(id, SEL, id))objc_msgSend)(a, (SEL)aSelector, b);
 }
 
 -(NSUInteger)indexForInsertingObject:(id)anObject sortedUsingSelector:(SEL)aSelector;
@@ -58,19 +58,19 @@ static NSComparisonResult cw_SelectorCompare(id a, id b, void* aSelector) {
 	return [self indexForInsertingObject:anObject sortedUsingfunction:&cw_SelectorCompare context:aSelector];
 }
 
-static IMP cw_compareObjectToObjectImp = NULL;
-static IMP cw_ascendingImp = NULL;
+static NSComparisonResult (*cw_compareObjectToObjectImp)(id, SEL, id, id) = NULL;
+static BOOL (*cw_ascendingImp)(id, SEL) = NULL;
 
 +(void)initialize;
 {
-  cw_compareObjectToObjectImp = [NSSortDescriptor instanceMethodForSelector:@selector(compareObject:toObject:)];
-	cw_ascendingImp = [NSSortDescriptor instanceMethodForSelector:@selector(ascending)];
+  cw_compareObjectToObjectImp = (NSComparisonResult (*)(id, SEL, id, id))[NSSortDescriptor instanceMethodForSelector:@selector(compareObject:toObject:)];
+	cw_ascendingImp = (BOOL (*)(id, SEL))[NSSortDescriptor instanceMethodForSelector:@selector(ascending)];
 }
 
 static NSComparisonResult cw_DescriptorCompare(id a, id b, void* descriptors) {
 	NSComparisonResult result = NSOrderedSame;
   for (NSSortDescriptor* sortDescriptor in (NSArray*)descriptors) {
-		result = (NSComparisonResult)cw_compareObjectToObjectImp(sortDescriptor, @selector(compareObject:toObject:), a, b);
+		result = cw_compareObjectToObjectImp(sortDescriptor, @selector(compareObject:toObject:), a, b);
     if (result != NSOrderedSame) {
       break;
     }
